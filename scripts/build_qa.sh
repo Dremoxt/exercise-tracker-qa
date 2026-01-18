@@ -15,21 +15,16 @@ echo "  Storage: Local only"
 echo "=========================================="
 echo ""
 
-flutter build web --release \
-    --dart-define=ENV=qa
-
-# Rename output folder for QA
-rm -rf build/web_qa
-mv build/web build/web_qa
+flutter build web --release --dart-define=ENV=qa
 
 echo ""
 echo "=========================================="
 echo "  QA Build Complete!"
-echo "  Output: build/web_qa/"
+echo "  Output: build/web/"
 echo "=========================================="
 echo ""
 echo "To test locally:"
-echo "  cd build/web_qa && python3 -m http.server 8080"
+echo "  cd build/web && python3 -m http.server 8080"
 echo "  Then open: http://localhost:8080"
 echo ""
 echo "Note: Cloud sync is disabled in QA mode."
