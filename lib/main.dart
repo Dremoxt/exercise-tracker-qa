@@ -13,23 +13,56 @@ import 'screens/settings_screen.dart';
 import 'widgets/qa_banner.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase only in production (skip for QA/UI testing)
-  if (!EnvironmentConfig.skipFirebase) {
-    await Firebase.initializeApp(
-      options: FirebaseConfig.webOptions,
+    // Initialize Firebase only in production (skip for QA/UI testing)
+    if (!EnvironmentConfig.skipFirebase) {
+      await Firebase.initializeApp(
+        options: FirebaseConfig.webOptions,
+      );
+    }
+
+    final databaseService = DatabaseService();
+
+    runApp(
+      ChangeNotifierProvider(
+        create: (_) => ExerciseProvider(databaseService)..initialize(),
+        child: const ExerciseTrackerApp(),
+      ),
     );
+  } catch (e, stackTrace) {
+    // Show error on screen for debugging
+    runApp(MaterialApp(
+      home: Scaffold(
+        backgroundColor: Colors.red.shade900,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'App Failed to Start',
+                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error: $e',
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Stack trace:\n$stackTrace',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
   }
-
-  final databaseService = DatabaseService();
-
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => ExerciseProvider(databaseService)..initialize(),
-      child: const ExerciseTrackerApp(),
-    ),
-  );
 }
 
 class ExerciseTrackerApp extends StatelessWidget {

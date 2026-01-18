@@ -4,14 +4,20 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
+import '../config/environment.dart';
 import 'secure_logger.dart';
 
 /// Service class for all database operations with encrypted storage
 class DatabaseService {
-  static const String _categoriesBox = 'categories_v2';
-  static const String _recordsBox = 'records_v2';
-  static const String _settingsBox = 'settings_v2';
-  static const String _weekdayGoalsBox = 'weekday_goals_v2';
+  // Use different box names for encrypted vs unencrypted to avoid conflicts
+  static String get _categoriesBox =>
+      EnvironmentConfig.isQA ? 'categories_qa' : 'categories_v2';
+  static String get _recordsBox =>
+      EnvironmentConfig.isQA ? 'records_qa' : 'records_v2';
+  static String get _settingsBox =>
+      EnvironmentConfig.isQA ? 'settings_qa' : 'settings_v2';
+  static String get _weekdayGoalsBox =>
+      EnvironmentConfig.isQA ? 'weekday_goals_qa' : 'weekday_goals_v2';
   static const String _keyBox = 'encryption_key';
   static const String _settingsKey = 'app_settings';
   static const String _weekdayGoalsKey = 'weekday_goals';
@@ -24,23 +30,33 @@ class DatabaseService {
   bool _isInitialized = false;
   HiveAesCipher? _cipher;
 
-  /// Generate or retrieve the encryption key
-  Future<Uint8List> _getEncryptionKey() async {
-    final keyBox = await Hive.openBox<String>(_keyBox);
-
-    String? storedKey = keyBox.get('key');
-    if (storedKey == null) {
-      // Generate a new 256-bit key
-      final key = Hive.generateSecureKey();
-      storedKey = base64Encode(key);
-      await keyBox.put('key', storedKey);
-      SecureLogger.info('DatabaseService', 'Generated new encryption key');
+  /// Generate or retrieve the encryption key (production only)
+  Future<Uint8List?> _getEncryptionKey() async {
+    // Skip encryption in QA mode for simpler testing
+    if (EnvironmentConfig.isQA) {
+      return null;
     }
 
-    return base64Decode(storedKey);
+    try {
+      final keyBox = await Hive.openBox<String>(_keyBox);
+
+      String? storedKey = keyBox.get('key');
+      if (storedKey == null) {
+        // Generate a new 256-bit key
+        final key = Hive.generateSecureKey();
+        storedKey = base64Encode(key);
+        await keyBox.put('key', storedKey);
+        SecureLogger.info('DatabaseService', 'Generated new encryption key');
+      }
+
+      return base64Decode(storedKey);
+    } catch (e, stackTrace) {
+      SecureLogger.error('DatabaseService._getEncryptionKey', e, stackTrace);
+      return null;
+    }
   }
 
-  /// Initialize Hive and open all boxes with encryption
+  /// Initialize Hive and open all boxes (encrypted in production, plain in QA)
   Future<void> initialize() async {
     if (_isInitialized) return;
 
@@ -53,11 +69,13 @@ class DatabaseService {
     Hive.registerAdapter(AppSettingsAdapter());
     Hive.registerAdapter(WeekdayGoalsAdapter());
 
-    // Get encryption key and create cipher
+    // Get encryption key (null in QA mode)
     final encryptionKey = await _getEncryptionKey();
-    _cipher = HiveAesCipher(encryptionKey);
+    if (encryptionKey != null) {
+      _cipher = HiveAesCipher(encryptionKey);
+    }
 
-    // Open encrypted boxes
+    // Open boxes (encrypted in production, plain in QA)
     _categoriesBoxInstance = await Hive.openBox<ExerciseCategory>(
       _categoriesBox,
       encryptionCipher: _cipher,

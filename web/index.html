@@ -13,12 +13,11 @@
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     font-src 'self' https://fonts.gstatic.com;
     img-src 'self' data: https: blob:;
-    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com;
+    connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com;
     frame-src 'self' https://accounts.google.com https://*.firebaseapp.com;
     worker-src 'self' blob:;
   ">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   
   <!-- iOS meta tags & icons -->
@@ -75,9 +74,26 @@
 <body>
   <div class="loading" id="loading">
     <div class="loading-spinner"></div>
-    <div class="loading-text">Loading Move Now...</div>
+    <div class="loading-text" id="status">Loading Move Now...</div>
   </div>
-  
+  <div id="error-display" style="display:none; padding:20px; color:white; font-family:monospace; white-space:pre-wrap;"></div>
+
+  <script>
+    // Catch and display any JavaScript errors
+    window.onerror = function(msg, url, line, col, error) {
+      var errorDiv = document.getElementById('error-display');
+      var loading = document.getElementById('loading');
+      loading.style.display = 'none';
+      errorDiv.style.display = 'block';
+      errorDiv.innerHTML = '<h2>JavaScript Error</h2>' +
+        '<p><strong>Message:</strong> ' + msg + '</p>' +
+        '<p><strong>URL:</strong> ' + url + '</p>' +
+        '<p><strong>Line:</strong> ' + line + '</p>' +
+        '<p><strong>Error:</strong> ' + (error ? error.stack : 'N/A') + '</p>';
+      return true;
+    };
+    document.getElementById('status').innerText = 'Loading Flutter...';
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

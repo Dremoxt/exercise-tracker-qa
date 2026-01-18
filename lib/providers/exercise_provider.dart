@@ -1,15 +1,17 @@
 import 'package:flutter/foundation.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/models.dart';
 import '../services/database_service.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/auth_service.dart';
+import '../config/environment.dart';
 
 /// Main state provider for the exercise tracker app
 class ExerciseProvider extends ChangeNotifier {
   final DatabaseService _db;
-  final CloudSyncService _cloudSync = CloudSyncService();
-  final AuthService _auth = AuthService();
+
+  // Cloud services - only initialized in production mode
+  CloudSyncService? _cloudSync;
+  AuthService? _auth;
   
   bool _isLoading = true;
   bool _isSyncing = false;
@@ -43,11 +45,14 @@ class ExerciseProvider extends ChangeNotifier {
   List<MonthlySummary> get monthlySummaries => _monthlySummaries;
   MonthlySummary? get personalBest => _personalBest;
   
-  // Auth getters
-  bool get isSignedIn => _auth.isSignedIn;
-  String? get userName => _auth.userName;
-  String? get userEmail => _auth.userEmail;
-  String? get userPhotoUrl => _auth.userPhotoUrl;
+  // Auth getters (always false/null in QA mode)
+  bool get isSignedIn => _auth?.isSignedIn ?? false;
+  String? get userName => _auth?.userName;
+  String? get userEmail => _auth?.userEmail;
+  String? get userPhotoUrl => _auth?.userPhotoUrl;
+
+  // Check if cloud features are available
+  bool get isCloudAvailable => !EnvironmentConfig.skipFirebase;
 
   /// Get target sets for selected date
   int get targetSetsForSelectedDate {
@@ -95,21 +100,27 @@ class ExerciseProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Initialize cloud services only in production mode
+      if (!EnvironmentConfig.skipFirebase) {
+        _cloudSync = CloudSyncService();
+        _auth = AuthService();
+      }
+
       await _db.initialize();
       await _loadData();
-      
-      // Check if already signed in and start sync
-      if (_auth.isSignedIn) {
+
+      // Check if already signed in and start sync (production only)
+      if (_auth?.isSignedIn ?? false) {
         _setupRealtimeSync();
-        _lastSyncTime = await _cloudSync.getLastSyncTime();
+        _lastSyncTime = await _cloudSync?.getLastSyncTime();
       }
-      
+
       _isLoading = false;
     } catch (e) {
       _error = 'Failed to initialize: $e';
       _isLoading = false;
     }
-    
+
     notifyListeners();
   }
 
@@ -130,16 +141,18 @@ class ExerciseProvider extends ChangeNotifier {
   // ============ Auth Operations ============
 
   Future<void> signInWithGoogle() async {
+    if (_auth == null || _cloudSync == null) return; // Not available in QA mode
+
     try {
       _isSyncing = true;
       notifyListeners();
-      
-      final result = await _auth.signInWithGoogle();
-      
+
+      final result = await _auth!.signInWithGoogle();
+
       if (result != null) {
         // Check if cloud has data
-        final hasCloud = await _cloudSync.hasCloudData();
-        
+        final hasCloud = await _cloudSync!.hasCloudData();
+
         if (hasCloud) {
           // Download from cloud
           await syncFromCloud();
@@ -147,12 +160,12 @@ class ExerciseProvider extends ChangeNotifier {
           // Upload local data to cloud
           await syncToCloud();
         }
-        
+
         // Start real-time sync
         _setupRealtimeSync();
         _lastSyncTime = DateTime.now();
       }
-      
+
       _isSyncing = false;
       notifyListeners();
     } catch (e) {
@@ -164,9 +177,11 @@ class ExerciseProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    if (_auth == null) return; // Not available in QA mode
+
     try {
-      _cloudSync.stopRealtimeSync();
-      await _auth.signOut();
+      _cloudSync?.stopRealtimeSync();
+      await _auth!.signOut();
       _lastSyncTime = null;
       notifyListeners();
     } catch (e) {
@@ -176,28 +191,30 @@ class ExerciseProvider extends ChangeNotifier {
   }
 
   void _setupRealtimeSync() {
+    if (_cloudSync == null) return; // Not available in QA mode
+
     // Set up callbacks for real-time updates
-    _cloudSync.onRecordsChanged = (records) async {
+    _cloudSync!.onRecordsChanged = (records) async {
       for (final record in records) {
         await _db.importRecord(record);
       }
       await _loadData();
       notifyListeners();
     };
-    
-    _cloudSync.onSettingsChanged = (settings) async {
+
+    _cloudSync!.onSettingsChanged = (settings) async {
       await _db.updateSettings(settings);
       _settings = settings;
       notifyListeners();
     };
-    
-    _cloudSync.onWeekdayGoalsChanged = (goals) async {
+
+    _cloudSync!.onWeekdayGoalsChanged = (goals) async {
       await _db.updateWeekdayGoals(goals);
       _weekdayGoals = goals;
       notifyListeners();
     };
-    
-    _cloudSync.startRealtimeSync();
+
+    _cloudSync!.startRealtimeSync();
   }
 
   // ============ Stroke Operations ============
@@ -214,8 +231,8 @@ class ExerciseProvider extends ChangeNotifier {
       _personalBest = _db.getPersonalBest();
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn && _todayRecord != null) {
-        _cloudSync.syncDailyRecord(_todayRecord!);
+      if (isSignedIn && _todayRecord != null) {
+        _cloudSync?.syncDailyRecord(_todayRecord!);
       }
       
       notifyListeners();
@@ -237,8 +254,8 @@ class ExerciseProvider extends ChangeNotifier {
       _personalBest = _db.getPersonalBest();
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn && _todayRecord != null) {
-        _cloudSync.syncDailyRecord(_todayRecord!);
+      if (isSignedIn && _todayRecord != null) {
+        _cloudSync?.syncDailyRecord(_todayRecord!);
       }
       
       notifyListeners();
@@ -262,8 +279,8 @@ class ExerciseProvider extends ChangeNotifier {
       _personalBest = _db.getPersonalBest();
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn && _todayRecord != null) {
-        _cloudSync.syncDailyRecord(_todayRecord!);
+      if (isSignedIn && _todayRecord != null) {
+        _cloudSync?.syncDailyRecord(_todayRecord!);
       }
       
       notifyListeners();
@@ -304,8 +321,8 @@ class ExerciseProvider extends ChangeNotifier {
       }
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn) {
-        _cloudSync.syncSettings(_settings);
+      if (isSignedIn) {
+        _cloudSync?.syncSettings(_settings);
       }
       
       notifyListeners();
@@ -322,8 +339,8 @@ class ExerciseProvider extends ChangeNotifier {
       _settings = newSettings;
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn) {
-        _cloudSync.syncSettings(_settings);
+      if (isSignedIn) {
+        _cloudSync?.syncSettings(_settings);
       }
       
       notifyListeners();
@@ -340,8 +357,8 @@ class ExerciseProvider extends ChangeNotifier {
       _settings = newSettings;
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn) {
-        _cloudSync.syncSettings(_settings);
+      if (isSignedIn) {
+        _cloudSync?.syncSettings(_settings);
       }
       
       notifyListeners();
@@ -364,8 +381,8 @@ class ExerciseProvider extends ChangeNotifier {
       _personalBest = _db.getPersonalBest();
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn) {
-        _cloudSync.syncWeekdayGoals(_weekdayGoals);
+      if (isSignedIn) {
+        _cloudSync?.syncWeekdayGoals(_weekdayGoals);
       }
       
       notifyListeners();
@@ -417,8 +434,8 @@ class ExerciseProvider extends ChangeNotifier {
       _todayRecord = _db.getOrCreateRecord(_selectedDate);
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn) {
-        _cloudSync.syncCategories(_categories);
+      if (isSignedIn) {
+        _cloudSync?.syncCategories(_categories);
       }
       
       notifyListeners();
@@ -434,8 +451,8 @@ class ExerciseProvider extends ChangeNotifier {
       _categories = _db.getActiveCategories();
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn) {
-        _cloudSync.syncCategories(_categories);
+      if (isSignedIn) {
+        _cloudSync?.syncCategories(_categories);
       }
       
       notifyListeners();
@@ -451,8 +468,8 @@ class ExerciseProvider extends ChangeNotifier {
       _categories = _db.getActiveCategories();
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn) {
-        _cloudSync.syncCategories(_categories);
+      if (isSignedIn) {
+        _cloudSync?.syncCategories(_categories);
       }
       
       notifyListeners();
@@ -477,8 +494,8 @@ class ExerciseProvider extends ChangeNotifier {
       _categories = _db.getActiveCategories();
       
       // Auto-sync to cloud if signed in
-      if (_auth.isSignedIn) {
-        _cloudSync.syncCategories(_categories);
+      if (isSignedIn) {
+        _cloudSync?.syncCategories(_categories);
       }
       
       notifyListeners();
@@ -512,23 +529,23 @@ class ExerciseProvider extends ChangeNotifier {
 
   /// Upload all data to cloud
   Future<void> syncToCloud() async {
-    if (!_auth.isSignedIn) return;
-    
+    if (!isSignedIn || _cloudSync == null) return;
+
     _isSyncing = true;
     notifyListeners();
 
     try {
       final allRecords = _db.getAllRecords();
-      
-      await _cloudSync.syncAllToCloud(
+
+      await _cloudSync!.syncAllToCloud(
         records: allRecords,
         categories: _categories,
         settings: _settings,
         weekdayGoals: _weekdayGoals,
       );
-      
+
       _lastSyncTime = DateTime.now();
-      
+
       _isSyncing = false;
       notifyListeners();
     } catch (e) {
@@ -541,46 +558,46 @@ class ExerciseProvider extends ChangeNotifier {
 
   /// Download all data from cloud
   Future<void> syncFromCloud() async {
-    if (!_auth.isSignedIn) return;
-    
+    if (!isSignedIn || _cloudSync == null) return;
+
     _isSyncing = true;
     notifyListeners();
 
     try {
       // Download settings
-      final cloudSettings = await _cloudSync.downloadSettings();
+      final cloudSettings = await _cloudSync!.downloadSettings();
       if (cloudSettings != null) {
         await _db.updateSettings(cloudSettings);
         _settings = cloudSettings;
       }
-      
+
       // Download weekday goals
-      final cloudGoals = await _cloudSync.downloadWeekdayGoals();
+      final cloudGoals = await _cloudSync!.downloadWeekdayGoals();
       if (cloudGoals != null) {
         await _db.updateWeekdayGoals(cloudGoals);
         _weekdayGoals = cloudGoals;
       }
-      
+
       // Download categories
-      final cloudCategories = await _cloudSync.downloadCategories();
+      final cloudCategories = await _cloudSync!.downloadCategories();
       if (cloudCategories.isNotEmpty) {
         for (final category in cloudCategories) {
           await _db.addCategory(category);
         }
         _categories = _db.getActiveCategories();
       }
-      
+
       // Download daily records
-      final cloudRecords = await _cloudSync.downloadDailyRecords();
+      final cloudRecords = await _cloudSync!.downloadDailyRecords();
       for (final record in cloudRecords) {
         await _db.importRecord(record);
       }
-      
+
       // Refresh local data
       await _loadData();
-      
-      _lastSyncTime = await _cloudSync.getLastSyncTime();
-      
+
+      _lastSyncTime = await _cloudSync!.getLastSyncTime();
+
       _isSyncing = false;
       notifyListeners();
     } catch (e) {
