@@ -1,5 +1,5 @@
  push:
-      branches: [main]
+ branches: [main]
     workflow_dispatch: name: Deploy QA to GitHub Pages
 on:
     push:
