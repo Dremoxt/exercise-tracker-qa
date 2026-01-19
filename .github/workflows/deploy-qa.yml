@@ -1,6 +1,3 @@
-name: Deploy QA to GitHub Pages
-
-  on:
     push:
       branches: [main]
     workflow_dispatch: name: Deploy QA to GitHub Pages
