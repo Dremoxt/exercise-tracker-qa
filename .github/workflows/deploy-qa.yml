@@ -33,6 +33,16 @@ jobs:
       - name: Build QA web
         run: flutter build web --release --dart-define=ENV=qa --base-href="/exercise-tracker-qa/"
 
+      - name: Setup landing page
+        run: |
+          # Rename Flutter's index.html to app.html
+          mv build/web/index.html build/web/app.html
+          # Use landing.html as the main index
+          cp web/landing.html build/web/index.html
+          # Update the CTA button link in landing page to point to app.html
+          sed -i 's|href="index.html"|href="app.html"|g' build/web/index.html
+          sed -i 's|href="./"|href="app.html"|g' build/web/index.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
