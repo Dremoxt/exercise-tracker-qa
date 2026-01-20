@@ -1,13 +1,11 @@
 name: Deploy QA
 
-  on: [push, workflow_dispatch]
-
-  permissions:
+on: [push, workflow_dispatch]
+permissions:
     contents: read
     pages: write
     id-token: write
-
-  jobs:
+jobs:
     build:
       runs-on: ubuntu-latest
       steps:
