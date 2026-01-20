@@ -32,9 +32,10 @@ class _StatsScreenState extends State<StatsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Personal Best Card
-                if (personalBest != null) _buildPersonalBestCard(context, personalBest),
-                
+                // Monthly Bar Chart (at the top)
+                if (summaries.isNotEmpty)
+                  _buildMonthlyBarChart(context, summaries, personalBest),
+
                 const SizedBox(height: 24),
 
                 // Category Stats Section
@@ -57,14 +58,14 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                 
                 const SizedBox(height: 24),
-                
+
                 // Monthly Records
                 Text(
                   'Monthly Records',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
-                
+
                 if (summaries.isEmpty)
                   _buildEmptyState(context, 'Start tracking to see your records!')
                 else
@@ -223,88 +224,91 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildPersonalBestCard(BuildContext context, MonthlySummary personalBest) {
+  Widget _buildMonthlyBarChart(
+    BuildContext context,
+    List<MonthlySummary> summaries,
+    MonthlySummary? personalBest,
+  ) {
+    final theme = Theme.of(context);
+    // Take last 12 months max, reversed so oldest is on the left
+    final displaySummaries = summaries.take(12).toList().reversed.toList();
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFFFD700).withOpacity(0.8),
-            const Color(0xFFFFA500).withOpacity(0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.brightness == Brightness.light
+              ? Colors.grey.shade200
+              : Colors.grey.shade800,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFFD700).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.emoji_events, color: Colors.white, size: 32),
-              const SizedBox(width: 12),
-              Text(
-                'Personal Best',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    DateFormat('MMMM yyyy').format(
-                      DateTime(personalBest.year, personalBest.month),
-                    ),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
+          // Chart with vertical bars
+          SizedBox(
+            height: 200,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: displaySummaries.map((summary) {
+                final isPersonalBest = personalBest != null &&
+                    summary.year == personalBest.year &&
+                    summary.month == personalBest.month;
+                final percentage = summary.averagePercentage.clamp(0.0, 100.0);
+                final barHeight = (percentage / 100) * 150;
+
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        // Personal best indicator (star above bar)
+                        if (isPersonalBest)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 2),
+                            child: Icon(
+                              Icons.star,
+                              color: Color(0xFFFFD700),
+                              size: 12,
+                            ),
+                          ),
+                        // Vertical bar
+                        Container(
+                          width: double.infinity,
+                          height: barHeight > 0 ? barHeight : 4,
+                          decoration: BoxDecoration(
+                            color: AppTheme.getProgressColor(percentage),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        // Month label
+                        Text(
+                          DateFormat('M').format(
+                            DateTime(summary.year, summary.month),
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        // Year (small indicator)
+                        Text(
+                          "'${summary.year.toString().substring(2)}",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 8,
+                            color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    '${personalBest.daysTracked} days tracked',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${personalBest.averagePercentage.toStringAsFixed(1)}%',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'average',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),

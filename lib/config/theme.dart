@@ -189,12 +189,12 @@ class AppTheme {
     ),
   );
 
-  // Helper to get progress color based on percentage
+  // Helper to get progress color based on percentage (5-tier system)
   static Color getProgressColor(double percentage) {
-    if (percentage >= 100) return accentColor;
-    if (percentage >= 75) return const Color(0xFF22C55E); // Green
-    if (percentage >= 50) return const Color(0xFFF59E0B); // Amber
-    if (percentage >= 25) return const Color(0xFFF97316); // Orange
+    if (percentage >= 100) return const Color(0xFF22C55E); // Green
+    if (percentage >= 75) return const Color(0xFFEAB308);  // Yellow
+    if (percentage >= 51) return const Color(0xFFF59E0B); // Amber
+    if (percentage >= 26) return const Color(0xFFF97316); // Orange
     return const Color(0xFFEF4444); // Red
   }
 

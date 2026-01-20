@@ -108,97 +108,93 @@ class HomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isToday = provider.isToday;
     final hasGoal = provider.selectedDateHasGoal;
-    
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Date row
+          // Single row: Today/Date, This Month, This Week, Circle
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isToday ? 'Today' : DateFormat('EEEE').format(provider.selectedDate),
-                    style: theme.textTheme.headlineMedium,
+              // Today with date
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: () => _selectDate(context, provider),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isToday ? 'Today' : DateFormat('EEEE').format(provider.selectedDate),
+                        style: theme.textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            DateFormat('MMM d, yyyy').format(provider.selectedDate),
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: theme.textTheme.bodyMedium?.color,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  GestureDetector(
-                    onTap: () => _selectDate(context, provider),
-                    child: Row(
-                      children: [
-                        Text(
-                          DateFormat('MMM d, yyyy').format(provider.selectedDate),
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.calendar_today,
-                          size: 16,
-                          color: theme.textTheme.bodyMedium?.color,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
-              
-              // Progress ring
+
+              const SizedBox(width: 8),
+
+              // This Month
+              _buildStatChip(
+                context,
+                icon: Icons.calendar_month,
+                label: '${provider.currentMonthSummary.averagePercentage.toStringAsFixed(0)}%',
+                sublabel: 'This month',
+              ),
+
+              const SizedBox(width: 8),
+
+              // This Week
+              _buildStatChip(
+                context,
+                icon: Icons.date_range,
+                label: '${provider.currentWeekPercentage.toStringAsFixed(0)}%',
+                sublabel: 'This week',
+              ),
+
+              const SizedBox(width: 8),
+
+              // Daily status circle
               if (hasGoal)
                 ProgressRing(
                   percentage: provider.todayPercentage,
-                  size: 80,
-                  strokeWidth: 8,
+                  size: 64,
+                  strokeWidth: 6,
                 )
               else
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 64,
+                  height: 64,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.grey.shade200,
                   ),
                   child: const Center(
-                    child: Icon(Icons.bedtime, size: 32, color: Colors.grey),
+                    child: Icon(Icons.bedtime, size: 28, color: Colors.grey),
                   ),
                 ),
             ],
           ),
-          
-          const SizedBox(height: 16),
-          
-          // Quick stats row - 3 tiles
+
           if (hasGoal) ...[
-            Row(
-              children: [
-                _buildStatChip(
-                  context,
-                  icon: Icons.check_circle_outline,
-                  label: '${provider.todayRecord?.totalStrokes ?? 0}/${provider.todayRecord?.maxStrokes ?? 0}',
-                  sublabel: 'Sets done',
-                ),
-                const SizedBox(width: 8),
-                _buildStatChip(
-                  context,
-                  icon: Icons.date_range,
-                  label: '${provider.currentWeekPercentage.toStringAsFixed(0)}%',
-                  sublabel: 'This week',
-                ),
-                const SizedBox(width: 8),
-                _buildStatChip(
-                  context,
-                  icon: Icons.calendar_month,
-                  label: '${provider.currentMonthSummary.averagePercentage.toStringAsFixed(0)}%',
-                  sublabel: 'This month',
-                ),
-              ],
-            ),
-            
             const SizedBox(height: 8),
-            
             // Instruction text
             Text(
               'Tap to add set • Long press to adjust',
@@ -219,33 +215,31 @@ class HomeScreen extends StatelessWidget {
     required String sublabel,
   }) {
     final theme = Theme.of(context);
-    
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: theme.brightness == Brightness.light
-                ? Colors.grey.shade200
-                : Colors.grey.shade800,
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.brightness == Brightness.light
+              ? Colors.grey.shade200
+              : Colors.grey.shade800,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: AppTheme.primaryColor),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelLarge,
           ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 18, color: AppTheme.primaryColor),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: theme.textTheme.labelLarge,
-            ),
-            Text(
-              sublabel,
-              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10),
-            ),
-          ],
-        ),
+          Text(
+            sublabel,
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10),
+          ),
+        ],
       ),
     );
   }
