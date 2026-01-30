@@ -151,22 +151,22 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(width: 8),
 
-              // This Month
-              _buildStatChip(
-                context,
-                icon: Icons.calendar_month,
-                label: '${provider.currentMonthSummary.averagePercentage.toStringAsFixed(0)}%',
-                sublabel: 'This month',
-              ),
-
-              const SizedBox(width: 8),
-
               // This Week
               _buildStatChip(
                 context,
                 icon: Icons.date_range,
                 label: '${provider.currentWeekPercentage.toStringAsFixed(0)}%',
                 sublabel: 'This week',
+              ),
+
+              const SizedBox(width: 8),
+
+              // This Month
+              _buildStatChip(
+                context,
+                icon: Icons.calendar_month,
+                label: '${provider.currentMonthSummary.averagePercentage.toStringAsFixed(0)}%',
+                sublabel: 'This month',
               ),
 
               const SizedBox(width: 8),

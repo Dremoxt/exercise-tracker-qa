@@ -53,9 +53,15 @@ class _StatsScreenState extends State<StatsScreen> {
                 if (categoryStats.isEmpty)
                   _buildEmptyState(context, 'No data for this period')
                 else
-                  ...categoryStats.map(
-                    (stat) => _buildCategoryStatCard(context, stat),
-                  ),
+                  ...() {
+                    // Calculate overall average across all categories
+                    final overallAverage = categoryStats.isNotEmpty
+                        ? categoryStats.map((s) => s.averagePercentage).reduce((a, b) => a + b) / categoryStats.length
+                        : 0.0;
+                    return categoryStats.map(
+                      (stat) => _buildCategoryStatCard(context, stat, overallAverage),
+                    );
+                  }(),
                 
                 const SizedBox(height: 24),
 
@@ -143,15 +149,22 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildCategoryStatCard(BuildContext context, CategoryMonthlyStats stat) {
+  Widget _buildCategoryStatCard(BuildContext context, CategoryMonthlyStats stat, double overallAverage) {
     final theme = Theme.of(context);
-    
+    final deviation = stat.averagePercentage - overallAverage;
+    final isPositive = deviation >= 0;
+    final deviationColor = deviation.abs() < 5
+        ? Colors.grey
+        : isPositive
+            ? Colors.green
+            : Colors.red;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: theme.brightness == Brightness.light
               ? Colors.grey.shade200
@@ -162,19 +175,19 @@ class _StatsScreenState extends State<StatsScreen> {
         children: [
           // Icon
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
               AppTheme.getCategoryIcon(stat.categoryIcon),
               color: AppTheme.primaryColor,
-              size: 20,
+              size: 18,
             ),
           ),
-          const SizedBox(width: 12),
-          
+          const SizedBox(width: 10),
+
           // Name and stats
           Expanded(
             child: Column(
@@ -182,42 +195,23 @@ class _StatsScreenState extends State<StatsScreen> {
               children: [
                 Text(
                   stat.categoryName,
-                  style: theme.textTheme.titleMedium,
+                  style: theme.textTheme.titleSmall,
                 ),
                 Text(
-                  '${stat.totalSetsCompleted} sets completed • ${stat.daysWithActivity} days active',
-                  style: theme.textTheme.bodyMedium,
+                  '${stat.totalSetsCompleted} sets • ${stat.daysWithActivity} days',
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),
           ),
-          
-          // Percentage
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${stat.averagePercentage.toStringAsFixed(0)}%',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppTheme.getProgressColor(stat.averagePercentage),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(
-                width: 60,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (stat.averagePercentage / 100).clamp(0.0, 1.0),
-                    backgroundColor: Colors.grey.shade300,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppTheme.getProgressColor(stat.averagePercentage),
-                    ),
-                    minHeight: 4,
-                  ),
-                ),
-              ),
-            ],
+
+          // Deviation from average
+          Text(
+            '${isPositive ? '+' : ''}${deviation.toStringAsFixed(0)}%',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: deviationColor,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -244,73 +238,83 @@ class _StatsScreenState extends State<StatsScreen> {
               : Colors.grey.shade800,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Chart with vertical bars
-          SizedBox(
-            height: 200,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: displaySummaries.map((summary) {
-                final isPersonalBest = personalBest != null &&
-                    summary.year == personalBest.year &&
-                    summary.month == personalBest.month;
-                final percentage = summary.averagePercentage.clamp(0.0, 100.0);
-                final barHeight = (percentage / 100) * 150;
+      child: SizedBox(
+        height: 120,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Y-axis labels
+            SizedBox(
+              width: 28,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('100', style: theme.textTheme.bodySmall?.copyWith(fontSize: 9, color: Colors.grey)),
+                  Text('75', style: theme.textTheme.bodySmall?.copyWith(fontSize: 9, color: Colors.grey)),
+                  Text('50', style: theme.textTheme.bodySmall?.copyWith(fontSize: 9, color: Colors.grey)),
+                  Text('25', style: theme.textTheme.bodySmall?.copyWith(fontSize: 9, color: Colors.grey)),
+                  const SizedBox(height: 20), // Space for month labels
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Bars
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: displaySummaries.map((summary) {
+                  final isPersonalBest = personalBest != null &&
+                      summary.year == personalBest.year &&
+                      summary.month == personalBest.month;
+                  final percentage = summary.averagePercentage.clamp(0.0, 100.0);
+                  final barHeight = (percentage / 100) * 80;
 
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        // Personal best indicator (star above bar)
-                        if (isPersonalBest)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 2),
-                            child: Icon(
-                              Icons.star,
-                              color: Color(0xFFFFD700),
-                              size: 12,
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          // Personal best indicator (star above bar)
+                          if (isPersonalBest)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 2),
+                              child: Icon(
+                                Icons.star,
+                                color: Color(0xFFFFD700),
+                                size: 10,
+                              ),
+                            ),
+                          // Vertical bar
+                          Container(
+                            width: double.infinity,
+                            height: barHeight > 0 ? barHeight : 2,
+                            decoration: BoxDecoration(
+                              color: AppTheme.getProgressColor(percentage),
+                              borderRadius: BorderRadius.circular(3),
                             ),
                           ),
-                        // Vertical bar
-                        Container(
-                          width: double.infinity,
-                          height: barHeight > 0 ? barHeight : 4,
-                          decoration: BoxDecoration(
-                            color: AppTheme.getProgressColor(percentage),
-                            borderRadius: BorderRadius.circular(4),
+                          const SizedBox(height: 4),
+                          // Month label
+                          Text(
+                            DateFormat('M').format(
+                              DateTime(summary.year, summary.month),
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        // Month label
-                        Text(
-                          DateFormat('M').format(
-                            DateTime(summary.year, summary.month),
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        // Year (small indicator)
-                        Text(
-                          "'${summary.year.toString().substring(2)}",
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 8,
-                            color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
