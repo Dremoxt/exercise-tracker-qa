@@ -42,6 +42,8 @@ jobs:
           # Update the CTA button link in landing page to point to app.html
           sed -i 's|href="index.html"|href="app.html"|g' build/web/index.html
           sed -i 's|href="./"|href="app.html"|g' build/web/index.html
+          # Disable Jekyll processing (prevents GitHub from rendering README instead of index.html)
+          touch build/web/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
